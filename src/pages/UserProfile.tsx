@@ -11,11 +11,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Pencil, Upload, BookOpen, FileText } from "lucide-react";
 
+interface Story {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  tags: string[] | null;
+  created_at: string;
+  status: string;
+}
+
 const UserProfile = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [stories, setStories] = useState<Story[]>([]);
   const [profile, setProfile] = useState({
     first_name: "",
     last_name: "",
@@ -59,6 +70,20 @@ const UserProfile = () => {
         avatar_url: data.avatar_url || "",
       });
     }
+
+    // Fetch user's stories
+    const { data: storiesData, error: storiesError } = await supabase
+      .from("stories")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (storiesError) {
+      toast.error("Hekayələr yüklənərkən xəta baş verdi");
+    } else if (storiesData) {
+      setStories(storiesData);
+    }
+
     setLoading(false);
   };
 
@@ -264,10 +289,54 @@ const UserProfile = () => {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="posts" className="mt-6">
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Hələ heç bir post yoxdur</p>
-                </div>
+                {stories.length > 0 ? (
+                  <div className="grid gap-4">
+                    {stories.map((story) => (
+                      <Card
+                        key={story.id}
+                        className="cursor-pointer hover:shadow-inkora transition-inkora"
+                        onClick={() => navigate(`/story/${story.id}`)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex gap-4">
+                            {story.cover_image_url && (
+                              <img
+                                src={story.cover_image_url}
+                                alt={story.title}
+                                className="w-32 h-32 object-cover rounded-lg"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <h3 className="text-xl font-semibold mb-2">{story.title}</h3>
+                              {story.description && (
+                                <p className="text-muted-foreground text-sm mb-2 line-clamp-2">
+                                  {story.description}
+                                </p>
+                              )}
+                              {story.tags && story.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {story.tags.map((tag, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Hələ heç bir hekayə yoxdur</p>
+                  </div>
+                )}
               </TabsContent>
               <TabsContent value="reading" className="mt-6">
                 <div className="text-center py-12 text-muted-foreground">
