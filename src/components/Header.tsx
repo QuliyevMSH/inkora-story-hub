@@ -21,12 +21,16 @@ export const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [session, setSession] = useState<Session | null>(null);
   const [showAuthNotification, setShowAuthNotification] = useState(true);
+  const [profile, setProfile] = useState<{ username: string; avatar_url: string | null } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
     });
 
     // Listen for auth changes
@@ -34,10 +38,27 @@ export const Header = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, avatar_url")
+      .eq("id", userId)
+      .single();
+    
+    if (data) {
+      setProfile(data);
+    }
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -98,9 +119,9 @@ export const Header = () => {
                   className="relative h-12 w-12 rounded-full transition-inkora hover:shadow-inkora"
                 >
                   <Avatar className="h-12 w-12 border-2 border-primary/20">
-                    <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="İstifadəçi" />
+                    <AvatarImage src={profile?.avatar_url || undefined} alt="İstifadəçi" />
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {session.user.email?.[0].toUpperCase()}
+                      {profile?.username?.[0].toUpperCase() || session.user.email?.[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -109,7 +130,7 @@ export const Header = () => {
                 align="end"
                 className="w-56 animate-slide-down bg-popover shadow-inkora-lg"
               >
-                <DropdownMenuLabel>Hesabım</DropdownMenuLabel>
+                <DropdownMenuLabel>@{profile?.username || "istifadəçi"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link
