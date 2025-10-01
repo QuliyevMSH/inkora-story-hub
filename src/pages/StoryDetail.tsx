@@ -53,6 +53,9 @@ const StoryDetail = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [showComments, setShowComments] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [singleStoryContent, setSingleStoryContent] = useState<string | null>(null);
+  const commentsPerPage = 10;
 
   useEffect(() => {
     fetchStory();
@@ -204,13 +207,30 @@ const StoryDetail = () => {
           setComments(storyCommentsData as any);
         }
       }
+
+      // Fetch single story content if not chapters
+      if (!data.is_chapters) {
+        const { data: singleStory } = await supabase
+          .from("single_stories")
+          .select("content")
+          .eq("story_id", id)
+          .single();
+
+        if (singleStory) {
+          setSingleStoryContent(singleStory.content);
+        }
+      }
     }
 
     setLoading(false);
   };
 
-  const handleStartWriting = () => {
-    navigate(`/story/${id}/write`);
+  const handleEdit = () => {
+    if (story?.is_chapters) {
+      navigate(`/story/${id}/edit-metadata`);
+    } else {
+      navigate(`/story/${id}/edit`);
+    }
   };
 
   const handleLike = async () => {
@@ -305,7 +325,7 @@ const StoryDetail = () => {
 
         {isOwner && (
           <Button
-            onClick={handleStartWriting}
+            onClick={handleEdit}
             className="mb-4 gap-2 float-right"
           >
             <PenLine className="h-4 w-4" />
@@ -402,27 +422,68 @@ const StoryDetail = () => {
                   </div>
 
                   <div className="space-y-4 mt-6">
-                    {comments.map((comment) => (
-                      <Card key={comment.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-1">
-                              <p className="font-semibold">
-                                {comment.profiles.first_name} {comment.profiles.last_name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                @{comment.profiles.username}
-                              </p>
-                              <p className="mt-2">{comment.content}</p>
-                              <p className="text-xs text-muted-foreground mt-2">
-                                {new Date(comment.created_at).toLocaleDateString("az-AZ")}
-                              </p>
+                    {comments
+                      .slice((currentPage - 1) * commentsPerPage, currentPage * commentsPerPage)
+                      .map((comment) => (
+                        <Card key={comment.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1">
+                                <p className="font-semibold">
+                                  {comment.profiles.first_name} {comment.profiles.last_name}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  @{comment.profiles.username}
+                                </p>
+                                <p className="mt-2">{comment.content}</p>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  {new Date(comment.created_at).toLocaleDateString("az-AZ")}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      ))}
                   </div>
+
+                  {comments.length > commentsPerPage && (
+                    <div className="flex justify-center gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Əvvəlki
+                      </Button>
+                      <span className="flex items-center px-4">
+                        {currentPage} / {Math.ceil(comments.length / commentsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(comments.length / commentsPerPage), p + 1))}
+                        disabled={currentPage === Math.ceil(comments.length / commentsPerPage)}
+                      >
+                        Növbəti
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {!story.is_chapters && singleStoryContent && (
+              <>
+                <Separator className="my-6" />
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Hekayə</h3>
+                  <div className="prose prose-lg max-w-none">
+                    <p className="whitespace-pre-wrap line-clamp-6">{singleStoryContent}</p>
+                  </div>
+                  <Button onClick={() => navigate(`/story/${id}/read`)}>
+                    Hamısını oxu
+                  </Button>
                 </div>
               </>
             )}
