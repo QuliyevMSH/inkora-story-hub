@@ -71,16 +71,24 @@ const StoryMetadataEdit = () => {
     let coverImageUrl = currentCoverUrl;
 
     if (coverImage) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("İstifadəçi məlumatı tapılmadı");
+        setSaving(false);
+        return;
+      }
+
       const fileExt = coverImage.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("story-covers")
         .upload(filePath, coverImage);
 
       if (uploadError) {
-        toast.error("Şəkil yüklənərkən xəta baş verdi");
+        console.error("Upload error:", uploadError);
+        toast.error("Şəkil yüklənərkən xəta baş verdi: " + uploadError.message);
         setSaving(false);
         return;
       }

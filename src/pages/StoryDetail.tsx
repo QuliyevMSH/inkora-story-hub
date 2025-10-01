@@ -20,6 +20,7 @@ interface Story {
   is_chapters: boolean;
   status: string;
   created_at: string;
+  content_type: string;
 }
 
 interface Chapter {
@@ -477,9 +478,9 @@ const StoryDetail = () => {
               <>
                 <Separator className="my-6" />
                 <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Hekayə</h3>
+                  <h3 className="text-xl font-semibold">{story.content_type === 'şeir' ? 'Şeir' : 'Hekayə'}</h3>
                   <div className="prose prose-lg max-w-none">
-                    <p className="whitespace-pre-wrap line-clamp-6">{singleStoryContent}</p>
+                    <p className="whitespace-pre-wrap">{singleStoryContent}</p>
                   </div>
                   <Button onClick={() => navigate(`/story/${id}/read`)}>
                     Hamısını oxu
