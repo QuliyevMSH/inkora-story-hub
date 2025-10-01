@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Pencil, Upload, BookOpen, FileText } from "lucide-react";
+import { Pencil, Upload, BookOpen, FileText, Eye, Heart, MessageCircle } from "lucide-react";
 
 interface Story {
   id: string;
@@ -19,6 +19,9 @@ interface Story {
   tags: string[] | null;
   created_at: string;
   status: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
 }
 
 const UserProfile = () => {
@@ -71,7 +74,7 @@ const UserProfile = () => {
       });
     }
 
-    // Fetch user's stories
+    // Fetch user's stories with stats
     const { data: storiesData, error: storiesError } = await supabase
       .from("stories")
       .select("*")
@@ -81,7 +84,36 @@ const UserProfile = () => {
     if (storiesError) {
       toast.error("Hekayələr yüklənərkən xəta baş verdi");
     } else if (storiesData) {
-      setStories(storiesData);
+      // Fetch stats for each story
+      const storiesWithStats = await Promise.all(
+        storiesData.map(async (story) => {
+          // Get view count
+          const { count: viewCount } = await supabase
+            .from("story_views")
+            .select("*", { count: "exact", head: true })
+            .eq("story_id", story.id);
+
+          // Get like count
+          const { count: likeCount } = await supabase
+            .from("story_likes")
+            .select("*", { count: "exact", head: true })
+            .eq("story_id", story.id);
+
+          // Get comment count
+          const { count: commentCount } = await supabase
+            .from("story_comments")
+            .select("*", { count: "exact", head: true })
+            .eq("story_id", story.id);
+
+          return {
+            ...story,
+            views: viewCount || 0,
+            likes: likeCount || 0,
+            comments: commentCount || 0,
+          };
+        })
+      );
+      setStories(storiesWithStats);
     }
 
     setLoading(false);
@@ -325,6 +357,20 @@ const UserProfile = () => {
                                   ))}
                                 </div>
                               )}
+                              <div className="flex gap-4 mt-3 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Eye className="h-4 w-4" />
+                                  <span>{story.views || 0}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Heart className="h-4 w-4" />
+                                  <span>{story.likes || 0}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <MessageCircle className="h-4 w-4" />
+                                  <span>{story.comments || 0}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </CardContent>

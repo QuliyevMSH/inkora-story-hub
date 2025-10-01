@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import UserProfile from "./pages/UserProfile";
 import StoryDetail from "./pages/StoryDetail";
 import StoryEditor from "./pages/StoryEditor";
+import ChapterRead from "./pages/ChapterRead";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/profile" element={<UserProfile />} />
           <Route path="/story/:id" element={<StoryDetail />} />
           <Route path="/story/:id/write" element={<StoryEditor />} />
+          <Route path="/story/:storyId/chapter/:chapterId" element={<ChapterRead />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
