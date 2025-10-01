@@ -70,7 +70,7 @@ const StoryDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [singleStoryContent, setSingleStoryContent] = useState<string | null>(null);
   const commentsPerPage = 10;
