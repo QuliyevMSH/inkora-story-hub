@@ -80,11 +80,11 @@ const StoryDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [showComments, setShowComments] = useState(true);
+  const [showComments, setShowComments] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [singleStoryContent, setSingleStoryContent] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "most-liked">("newest");
-  const commentsPerPage = 10;
+  const commentsPerPage = 5;
 
   useEffect(() => {
     fetchStory();
@@ -667,14 +667,20 @@ const StoryDetail = () => {
                         <Card key={comment.id}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10">
+                              <Avatar 
+                                className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => navigate(`/user/${comment.user_id}`)}
+                              >
                                 <AvatarImage src={comment.profiles.avatar_url || undefined} />
                                 <AvatarFallback>
                                   {comment.profiles.first_name?.[0]}{comment.profiles.last_name?.[0]}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <p className="font-semibold">
+                                <p 
+                                  className="font-semibold cursor-pointer hover:underline"
+                                  onClick={() => navigate(`/user/${comment.user_id}`)}
+                                >
                                   {comment.profiles.first_name} {comment.profiles.last_name}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
@@ -683,7 +689,7 @@ const StoryDetail = () => {
                                 <p className="mt-2">{comment.content}</p>
                                 <div className="flex items-center gap-4 mt-2">
                                   <p className="text-xs text-muted-foreground">
-                                    {new Date(comment.created_at).toLocaleDateString("az-AZ")}
+                                    {new Date(comment.created_at).toLocaleDateString("az-AZ")} • {new Date(comment.created_at).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })}
                                   </p>
                                   <Button
                                     variant="ghost"
