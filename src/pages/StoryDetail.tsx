@@ -7,8 +7,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { PenLine, ArrowLeft, Eye, Heart, MessageCircle } from "lucide-react";
+import { PenLine, ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Trash } from "lucide-react";
 
 interface Story {
   id: string;
@@ -48,6 +64,7 @@ const StoryDetail = () => {
   const [loading, setLoading] = useState(true);
   const [story, setStory] = useState<Story | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [stats, setStats] = useState({ views: 0, likes: 0, comments: 0 });
   const [isLiked, setIsLiked] = useState(false);
@@ -234,6 +251,49 @@ const StoryDetail = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+
+    try {
+      // Delete associated records first
+      if (story?.is_chapters) {
+        // Delete chapter-related data
+        const { data: chapters } = await supabase
+          .from("chapters")
+          .select("id")
+          .eq("story_id", id);
+
+        if (chapters) {
+          const chapterIds = chapters.map((c) => c.id);
+
+          await supabase.from("chapter_comments").delete().in("chapter_id", chapterIds);
+          await supabase.from("chapter_likes").delete().in("chapter_id", chapterIds);
+          await supabase.from("chapter_views").delete().in("chapter_id", chapterIds);
+          await supabase.from("chapters").delete().eq("story_id", id);
+        }
+      } else {
+        // Delete single story data
+        await supabase.from("single_stories").delete().eq("story_id", id);
+      }
+
+      // Delete story-level data
+      await supabase.from("story_comments").delete().eq("story_id", id);
+      await supabase.from("story_likes").delete().eq("story_id", id);
+      await supabase.from("story_views").delete().eq("story_id", id);
+
+      // Finally delete the story itself
+      const { error } = await supabase.from("stories").delete().eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Post uğurla silindi");
+      navigate("/profile");
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Post silinərkən xəta baş verdi");
+    }
+  };
+
   const handleLike = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -314,6 +374,24 @@ const StoryDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bu postu silmək istədiyinizə əminsiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu əməliyyat geri alına bilməz. Post və bütün əlaqəli məlumatlar silinəcək.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <main className="container mx-auto max-w-6xl px-4 py-8">
         <Button
           variant="ghost"
@@ -325,13 +403,30 @@ const StoryDetail = () => {
         </Button>
 
         {isOwner && (
-          <Button
-            onClick={handleEdit}
-            className="mb-4 gap-2 float-right"
-          >
-            <PenLine className="h-4 w-4" />
-            Redaktə et
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mb-4 float-right"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-background">
+              <DropdownMenuItem onClick={handleEdit} className="cursor-pointer">
+                <PenLine className="mr-2 h-4 w-4" />
+                Redaktə et
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowDeleteAlert(true)}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Sil
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
 
         <Card className="shadow-inkora-lg">
