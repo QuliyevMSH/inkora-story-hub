@@ -474,7 +474,7 @@ const StoryDetail = () => {
               </>
             )}
 
-            {!story.is_chapters && singleStoryContent && (
+            {!story.is_chapters && singleStoryContent && singleStoryContent.trim() && (
               <>
                 <Separator className="my-6" />
                 <div className="space-y-4">

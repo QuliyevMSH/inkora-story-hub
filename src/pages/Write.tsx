@@ -127,6 +127,7 @@ const Write = () => {
         content_type: contentType,
         categories: selectedCategories,
         status: "draft",
+        is_chapters: false,
       })
       .select()
       .single();
@@ -137,8 +138,23 @@ const Write = () => {
       return;
     }
 
-    toast.success("Hekayə uğurla yaradıldı!");
-    navigate(`/story/${story.id}`);
+    // Create empty single_stories record for non-chapter stories
+    const { error: singleStoryError } = await supabase
+      .from("single_stories")
+      .insert({
+        story_id: story.id,
+        content: "",
+      });
+
+    if (singleStoryError) {
+      console.error("Single story creation error:", singleStoryError);
+      // Don't block the flow, just log the error
+    }
+
+    toast.success("Post uğurla yaradıldı! İndi məzmunu əlavə edə bilərsiniz.");
+    
+    // Navigate to edit page to add content
+    navigate(`/story/${story.id}/edit`);
   };
 
   return (
