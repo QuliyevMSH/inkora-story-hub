@@ -24,7 +24,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { PenLine, ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Trash } from "lucide-react";
+import { PenLine, ArrowLeft, Eye, Heart, MessageCircle, MoreVertical, Trash, ThumbsUp } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Story {
   id: string;
@@ -56,6 +64,8 @@ interface Comment {
     username: string;
     avatar_url: string | null;
   };
+  likes?: number;
+  isLiked?: boolean;
 }
 
 const StoryDetail = () => {
@@ -73,6 +83,7 @@ const StoryDetail = () => {
   const [showComments, setShowComments] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [singleStoryContent, setSingleStoryContent] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"newest" | "most-liked">("newest");
   const commentsPerPage = 10;
 
   useEffect(() => {
@@ -200,8 +211,45 @@ const StoryDetail = () => {
           .eq("story_id", id)
           .order("created_at", { ascending: false });
 
-        if (commentsData) {
-          setComments(commentsData as any);
+        if (commentsData && user) {
+          const commentsWithLikes = await Promise.all(
+            commentsData.map(async (comment) => {
+              const { count: likesCount } = await supabase
+                .from("story_comment_likes")
+                .select("*", { count: "exact", head: true })
+                .eq("comment_id", comment.id);
+
+              const { data: userLike } = await supabase
+                .from("story_comment_likes")
+                .select("*")
+                .eq("comment_id", comment.id)
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+              return {
+                ...comment,
+                likes: likesCount || 0,
+                isLiked: !!userLike,
+              };
+            })
+          );
+          setComments(commentsWithLikes as any);
+        } else if (commentsData) {
+          const commentsWithLikes = await Promise.all(
+            commentsData.map(async (comment) => {
+              const { count: likesCount } = await supabase
+                .from("story_comment_likes")
+                .select("*", { count: "exact", head: true })
+                .eq("comment_id", comment.id);
+
+              return {
+                ...comment,
+                likes: likesCount || 0,
+                isLiked: false,
+              };
+            })
+          );
+          setComments(commentsWithLikes as any);
         }
       }
 
@@ -221,8 +269,45 @@ const StoryDetail = () => {
           .eq("story_id", id)
           .order("created_at", { ascending: false });
 
-        if (storyCommentsData) {
-          setComments(storyCommentsData as any);
+        if (storyCommentsData && user) {
+          const commentsWithLikes = await Promise.all(
+            storyCommentsData.map(async (comment) => {
+              const { count: likesCount } = await supabase
+                .from("story_comment_likes")
+                .select("*", { count: "exact", head: true })
+                .eq("comment_id", comment.id);
+
+              const { data: userLike } = await supabase
+                .from("story_comment_likes")
+                .select("*")
+                .eq("comment_id", comment.id)
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+              return {
+                ...comment,
+                likes: likesCount || 0,
+                isLiked: !!userLike,
+              };
+            })
+          );
+          setComments(commentsWithLikes as any);
+        } else if (storyCommentsData) {
+          const commentsWithLikes = await Promise.all(
+            storyCommentsData.map(async (comment) => {
+              const { count: likesCount } = await supabase
+                .from("story_comment_likes")
+                .select("*", { count: "exact", head: true })
+                .eq("comment_id", comment.id);
+
+              return {
+                ...comment,
+                likes: likesCount || 0,
+                isLiked: false,
+              };
+            })
+          );
+          setComments(commentsWithLikes as any);
         }
       }
 
@@ -348,6 +433,53 @@ const StoryDetail = () => {
     toast.success("Şərh əlavə edildi");
     fetchStory();
   };
+
+  const handleCommentLike = async (commentId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Bəyənmək üçün daxil olun");
+      return;
+    }
+
+    const comment = comments.find((c) => c.id === commentId);
+    if (!comment) return;
+
+    if (comment.isLiked) {
+      await supabase
+        .from("story_comment_likes")
+        .delete()
+        .eq("comment_id", commentId)
+        .eq("user_id", user.id);
+
+      setComments(
+        comments.map((c) =>
+          c.id === commentId
+            ? { ...c, likes: (c.likes || 0) - 1, isLiked: false }
+            : c
+        )
+      );
+    } else {
+      await supabase.from("story_comment_likes").insert({
+        comment_id: commentId,
+        user_id: user.id,
+      });
+
+      setComments(
+        comments.map((c) =>
+          c.id === commentId
+            ? { ...c, likes: (c.likes || 0) + 1, isLiked: true }
+            : c
+        )
+      );
+    }
+  };
+
+  const sortedComments = [...comments].sort((a, b) => {
+    if (sortBy === "most-liked") {
+      return (b.likes || 0) - (a.likes || 0);
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   if (loading) {
     return (
@@ -501,9 +633,20 @@ const StoryDetail = () => {
               <>
                 <Separator className="my-6" />
                 <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">
-                    {story.is_chapters ? "Hekayə haqqında şərhlər" : "Şərhlər"}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold">
+                      {story.is_chapters ? "Hekayə haqqında şərhlər" : "Şərhlər"}
+                    </h3>
+                    <Select value={sortBy} onValueChange={(value: "newest" | "most-liked") => setSortBy(value)}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Ən yeni</SelectItem>
+                        <SelectItem value="most-liked">Ən çox bəyənilən</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   
                   <div className="space-y-2">
                     <Textarea
@@ -518,12 +661,18 @@ const StoryDetail = () => {
                   </div>
 
                   <div className="space-y-4 mt-6">
-                    {comments
+                    {sortedComments
                       .slice((currentPage - 1) * commentsPerPage, currentPage * commentsPerPage)
                       .map((comment) => (
                         <Card key={comment.id}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={comment.profiles.avatar_url || undefined} />
+                                <AvatarFallback>
+                                  {comment.profiles.first_name?.[0]}{comment.profiles.last_name?.[0]}
+                                </AvatarFallback>
+                              </Avatar>
                               <div className="flex-1">
                                 <p className="font-semibold">
                                   {comment.profiles.first_name} {comment.profiles.last_name}
@@ -532,9 +681,20 @@ const StoryDetail = () => {
                                   @{comment.profiles.username}
                                 </p>
                                 <p className="mt-2">{comment.content}</p>
-                                <p className="text-xs text-muted-foreground mt-2">
-                                  {new Date(comment.created_at).toLocaleDateString("az-AZ")}
-                                </p>
+                                <div className="flex items-center gap-4 mt-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(comment.created_at).toLocaleDateString("az-AZ")}
+                                  </p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleCommentLike(comment.id)}
+                                    className={`gap-1 h-8 ${comment.isLiked ? "text-primary" : ""}`}
+                                  >
+                                    <ThumbsUp className={`h-4 w-4 ${comment.isLiked ? "fill-current" : ""}`} />
+                                    <span className="text-xs">{comment.likes || 0}</span>
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </CardContent>
