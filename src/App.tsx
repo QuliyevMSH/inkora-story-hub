@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Write from "./pages/Write";
 import Auth from "./pages/Auth";
 import UserProfile from "./pages/UserProfile";
+import UserPublicProfile from "./pages/UserPublicProfile";
 import StoryDetail from "./pages/StoryDetail";
 import StoryEditor from "./pages/StoryEditor";
 import ChapterRead from "./pages/ChapterRead";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/write" element={<Write />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/profile" element={<UserProfile />} />
+          <Route path="/user/:userId" element={<UserPublicProfile />} />
           <Route path="/story/:id" element={<StoryDetail />} />
           <Route path="/story/:id/write" element={<StoryEditor />} />
           <Route path="/story/:id/read" element={<SingleStoryRead />} />

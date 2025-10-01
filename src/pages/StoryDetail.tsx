@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 
 interface Story {
   id: string;
@@ -84,11 +85,20 @@ const StoryDetail = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [singleStoryContent, setSingleStoryContent] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "most-liked">("newest");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const commentsPerPage = 5;
 
   useEffect(() => {
     fetchStory();
+    getCurrentUser();
   }, [id]);
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
 
   const fetchStory = async () => {
     if (!id) return;
@@ -481,6 +491,53 @@ const StoryDetail = () => {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  const handleDeleteComment = async (commentId: string) => {
+    const { error } = await supabase
+      .from("story_comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      toast.error("Şərh silinərkən xəta baş verdi");
+      return;
+    }
+
+    toast.success("Şərh silindi");
+    fetchStory();
+  };
+
+  const handleEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.content);
+  };
+
+  const handleSaveEdit = async (commentId: string) => {
+    if (!editingCommentText.trim()) {
+      toast.error("Şərh boş ola bilməz");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("story_comments")
+      .update({ content: editingCommentText })
+      .eq("id", commentId);
+
+    if (error) {
+      toast.error("Şərh yenilənərkən xəta baş verdi");
+      return;
+    }
+
+    setEditingCommentId(null);
+    setEditingCommentText("");
+    toast.success("Şərh yeniləndi");
+    fetchStory();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentText("");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -663,49 +720,103 @@ const StoryDetail = () => {
                   <div className="space-y-4 mt-6">
                     {sortedComments
                       .slice((currentPage - 1) * commentsPerPage, currentPage * commentsPerPage)
-                      .map((comment) => (
-                        <Card key={comment.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <Avatar 
-                                className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => navigate(`/user/${comment.user_id}`)}
-                              >
-                                <AvatarImage src={comment.profiles.avatar_url || undefined} />
-                                <AvatarFallback>
-                                  {comment.profiles.first_name?.[0]}{comment.profiles.last_name?.[0]}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <p 
-                                  className="font-semibold cursor-pointer hover:underline"
+                      .map((comment) => {
+                        const isCommentOwner = currentUserId && comment.user_id === currentUserId;
+                        const isStoryOwner = story && currentUserId && story.user_id === currentUserId;
+                        const canModify = isCommentOwner || isStoryOwner;
+
+                        return (
+                          <Card key={comment.id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <Avatar 
+                                  className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
                                   onClick={() => navigate(`/user/${comment.user_id}`)}
                                 >
-                                  {comment.profiles.first_name} {comment.profiles.last_name}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  @{comment.profiles.username}
-                                </p>
-                                <p className="mt-2">{comment.content}</p>
-                                <div className="flex items-center gap-4 mt-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    {new Date(comment.created_at).toLocaleDateString("az-AZ")} • {new Date(comment.created_at).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })}
-                                  </p>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleCommentLike(comment.id)}
-                                    className={`gap-1 h-8 ${comment.isLiked ? "text-primary" : ""}`}
-                                  >
-                                    <ThumbsUp className={`h-4 w-4 ${comment.isLiked ? "fill-current" : ""}`} />
-                                    <span className="text-xs">{comment.likes || 0}</span>
-                                  </Button>
+                                  <AvatarImage src={comment.profiles.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    {comment.profiles.first_name?.[0]}{comment.profiles.last_name?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <p 
+                                        className="font-semibold cursor-pointer hover:underline"
+                                        onClick={() => navigate(`/user/${comment.user_id}`)}
+                                      >
+                                        {comment.profiles.first_name} {comment.profiles.last_name}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        @{comment.profiles.username}
+                                      </p>
+                                    </div>
+                                    {canModify && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreVertical className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          {isCommentOwner && (
+                                            <DropdownMenuItem onClick={() => handleEditComment(comment)}>
+                                              <PenLine className="mr-2 h-4 w-4" />
+                                              Redaktə et
+                                            </DropdownMenuItem>
+                                          )}
+                                          <DropdownMenuItem 
+                                            onClick={() => handleDeleteComment(comment.id)}
+                                            className="text-destructive focus:text-destructive"
+                                          >
+                                            <Trash className="mr-2 h-4 w-4" />
+                                            Sil
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
+                                  </div>
+                                  
+                                  {editingCommentId === comment.id ? (
+                                    <div className="mt-2 space-y-2">
+                                      <Input
+                                        value={editingCommentText}
+                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                        className="w-full"
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button size="sm" onClick={() => handleSaveEdit(comment.id)}>
+                                          Yadda saxla
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                          Ləğv et
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="mt-2">{comment.content}</p>
+                                  )}
+                                  
+                                  <div className="flex items-center gap-4 mt-2">
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(comment.created_at).toLocaleDateString("az-AZ")} • {new Date(comment.created_at).toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleCommentLike(comment.id)}
+                                      className={`gap-1 h-8 ${comment.isLiked ? "text-primary" : ""}`}
+                                    >
+                                      <ThumbsUp className={`h-4 w-4 ${comment.isLiked ? "fill-current" : ""}`} />
+                                      <span className="text-xs">{comment.likes || 0}</span>
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                   </div>
 
                   {comments.length > commentsPerPage && (
