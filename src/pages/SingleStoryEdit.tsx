@@ -63,7 +63,7 @@ const SingleStoryEdit = () => {
       .from("single_stories")
       .select("content")
       .eq("story_id", id)
-      .single();
+      .maybeSingle();
 
     if (contentError) {
       console.error("Content fetch error:", contentError);

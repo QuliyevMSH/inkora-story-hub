@@ -163,7 +163,7 @@ const StoryDetail = () => {
             .select("*")
             .eq("story_id", id)
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle();
 
           setIsLiked(!!likeData);
         }
@@ -215,7 +215,7 @@ const StoryDetail = () => {
           .from("single_stories")
           .select("content")
           .eq("story_id", id)
-          .single();
+          .maybeSingle();
 
         if (singleStory) {
           setSingleStoryContent(singleStory.content);
